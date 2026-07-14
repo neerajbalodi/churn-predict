@@ -1,11 +1,6 @@
-
 // Jenkinsfile — the automation station.
-// On every push: install deps, TRAIN + GATE on accuracy, run tests,
-// build the image, push it, then (optionally) roll it out to EKS.
-//
-// The accuracy gate (train.py exits non-zero below threshold) is what makes
-// this an ML pipeline rather than a plain app pipeline: a bad MODEL fails the
-// build just like bad CODE would.
+// All Python work (train, test) runs INSIDE Docker containers,
+// so Jenkins only needs Docker, AWS CLI, and kubectl — no Python required.
 
 pipeline {
   agent any
@@ -29,28 +24,22 @@ pipeline {
         }
         // Connect kubectl to EKS cluster so Deploy stage can run
         sh "aws eks update-kubeconfig --name ${CLUSTER_NAME} --region ${AWS_REGION}"
-        // Install Python dependencies
-        sh 'python3.13 -m venv venv'
-        sh 'venv/bin/pip install -r requirements.txt'
-      }
-    }
-
-    stage('Train + Gate') {
-      // train.py exits non-zero if accuracy < threshold -> stage fails here.
-      steps {
-        sh 'venv/bin/python train.py'
-      }
-    }
-
-    stage('Test') {
-      steps {
-        sh 'venv/bin/pytest -q'
       }
     }
 
     stage('Build Image') {
+      // Docker build installs deps + trains the model (RUN python train.py).
+      // If accuracy < threshold, train.py exits non-zero and the build FAILS.
+      // This IS the quality gate — baked right into the Docker build.
       steps {
         sh "docker build -t \${IMAGE}:${TAG} -t \${IMAGE}:latest ."
+      }
+    }
+
+    stage('Test') {
+      // Run tests inside the built image — guaranteed same Python + deps
+      steps {
+        sh "docker run --rm \${IMAGE}:${TAG} python -m pytest -q"
       }
     }
 
