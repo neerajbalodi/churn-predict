@@ -38,7 +38,7 @@ pipeline {
     stage('Train + Gate') {
       // train.py exits non-zero if accuracy < threshold -> stage fails here.
       steps {
-        sh '. venv/bin/activate && python train.py'
+        sh '. venv/bin/activate && python3 train.py'
       }
     }
 
