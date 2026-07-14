@@ -11,7 +11,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy source and produce model.joblib inside the image.
-COPY train.py app.py ./
+COPY train.py app.py test_app.py ./
 RUN python train.py
 
 EXPOSE 8000
