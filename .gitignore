@@ -1,0 +1,16 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+# Model is a build artifact, NOT source. Never commit it to Git.
+model.joblib
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.backup
+# Environment
+.env
+venv/
+# IDE
+.idea/
+# Archives
+files.zip

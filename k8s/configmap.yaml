@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: churn-api-config
+data:
+  # Non-secret config goes here. Secrets (API keys, DB passwords) would go in
+  # a Kubernetes Secret instead — same idea, different object.
+  MODEL_PATH: "model.joblib"
+  LOG_LEVEL: "info"
