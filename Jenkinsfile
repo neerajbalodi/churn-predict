@@ -30,7 +30,7 @@ pipeline {
         // Connect kubectl to EKS cluster so Deploy stage can run
         sh "aws eks update-kubeconfig --name ${CLUSTER_NAME} --region ${AWS_REGION}"
         // Install Python dependencies
-        sh 'python -m venv venv'
+        sh 'python3.13 -m venv venv'
         sh '. venv/bin/activate && pip install -r requirements.txt'
       }
     }
