@@ -5,5 +5,6 @@ metadata:
 data:
   # Non-secret config goes here. Secrets (API keys, DB passwords) would go in
   # a Kubernetes Secret instead — same idea, different object.
-  MODEL_PATH: "model.joblib"
+  MODEL_PATH: "/tmp/model.joblib"
+  MODEL_S3_BUCKET: "churn-mlops-models"
   LOG_LEVEL: "info"
