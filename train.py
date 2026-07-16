@@ -1,13 +1,14 @@
 """
-train.py — trains the churn model and saves it to model.joblib.
+train.py — trains the churn model, saves it locally, and uploads to S3.
 
 The "data science" of this course is deliberately tiny: we generate a
 synthetic-but-realistic churn dataset (no external download to break the lab),
-train a simple pipeline, and gate on accuracy. Everything downstream
-(Docker, Jenkins, Kubernetes) treats model.joblib as an opaque artifact.
+train a simple pipeline, and gate on accuracy. The trained model is uploaded
+to S3 so the serving container can download it at startup.
 
 Run:  python train.py
 """
+import os
 import numpy as np
 import pandas as pd
 from sklearn.pipeline import Pipeline
@@ -16,6 +17,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score
 import joblib
+import boto3
 
 RANDOM_STATE = 42
 MODEL_PATH = "model.joblib"
@@ -105,6 +107,15 @@ def main():
 
     joblib.dump({"model": model, "features": FEATURES, "accuracy": acc}, MODEL_PATH)
     print(f"PASS: saved {MODEL_PATH}")
+
+    # Upload model to S3
+    bucket = os.getenv("MODEL_S3_BUCKET")
+    if bucket:
+        s3 = boto3.client("s3")
+        s3.upload_file(MODEL_PATH, bucket, "model.joblib")
+        print(f"Uploaded model to s3://{bucket}/model.joblib")
+    else:
+        print("MODEL_S3_BUCKET not set — skipping S3 upload (local mode)")
 
 
 if __name__ == "__main__":

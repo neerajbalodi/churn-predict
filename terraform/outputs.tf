@@ -11,3 +11,8 @@ output "cluster_name" {
 output "configure_kubectl" {
   value = "aws eks update-kubeconfig --name ${module.eks.cluster_name} --region ${var.region}"
 }
+
+output "model_bucket" {
+  value       = aws_s3_bucket.models.bucket
+  description = "S3 bucket for model storage"
+}

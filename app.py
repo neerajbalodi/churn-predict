@@ -1,22 +1,29 @@
 """
-app.py — the prediction service. Loads model.joblib and serves predictions.
+app.py — the prediction service. Downloads model from S3 and serves predictions.
 
 This is the thing that gets containerized, automated, and deployed. It is
-intentionally stateless: no database, no cache. It loads a model into memory
-and answers requests. That's it.
+intentionally stateless: no database, no cache. It downloads the model from
+S3 at startup, loads it into memory, and answers requests. That's it.
 
-Run locally:  uvicorn app:app --reload --port 8000
+Run locally:  MODEL_PATH=model.joblib uvicorn app:app --reload --port 8000
 Interactive docs:  http://localhost:8000/docs
 """
 import os
 import joblib
 import pandas as pd
+import boto3
 from fastapi import FastAPI
 from pydantic import BaseModel, Field
 
-MODEL_PATH = os.getenv("MODEL_PATH", "model.joblib")
+MODEL_PATH = os.getenv("MODEL_PATH", "/tmp/model.joblib")
+MODEL_S3_BUCKET = os.getenv("MODEL_S3_BUCKET")
 
 app = FastAPI(title="Churn Prediction API", version="1.0.0")
+
+# Download model from S3 if bucket is configured, otherwise load from local file.
+if MODEL_S3_BUCKET:
+    s3 = boto3.client("s3")
+    s3.download_file(MODEL_S3_BUCKET, "model.joblib", MODEL_PATH)
 
 # Load once at startup, not per-request.
 _bundle = joblib.load(MODEL_PATH)

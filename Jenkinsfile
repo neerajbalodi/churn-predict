@@ -1,15 +1,16 @@
 // Jenkinsfile — the automation station.
-// All Python work (train, test) runs INSIDE Docker containers,
-// so Jenkins only needs Docker, AWS CLI, and kubectl — no Python required.
+// Train + upload model to S3, then build a code-only image and deploy.
+// Jenkins only needs Docker, AWS CLI, and kubectl — no Python required.
 
 pipeline {
   agent any
 
   environment {
-    AWS_REGION    = "ca-central-1"
-    ECR_REPO_NAME = "churn-api"
-    CLUSTER_NAME  = "churn-mlops"
-    TAG           = "${env.BUILD_NUMBER}"
+    AWS_REGION      = "ca-central-1"
+    ECR_REPO_NAME   = "churn-api"
+    CLUSTER_NAME    = "churn-mlops"
+    MODEL_S3_BUCKET = "churn-mlops-models"
+    TAG             = "${env.BUILD_NUMBER}"
   }
 
   stages {
@@ -27,19 +28,42 @@ pipeline {
       }
     }
 
+    stage('Train + Upload') {
+      // Train the model and upload to S3.
+      // If accuracy < threshold, train.py exits non-zero → stage fails → pipeline stops.
+      steps {
+        sh """
+          docker run --rm \
+            -e MODEL_S3_BUCKET=${MODEL_S3_BUCKET} \
+            -e AWS_ACCESS_KEY_ID=\$(aws configure get aws_access_key_id) \
+            -e AWS_SECRET_ACCESS_KEY=\$(aws configure get aws_secret_access_key) \
+            -e AWS_DEFAULT_REGION=${AWS_REGION} \
+            -v \$(pwd):/work -w /work \
+            python:3.12-slim \
+            bash -c "pip install -q -r requirements.txt && python train.py"
+        """
+      }
+    }
+
     stage('Build Image') {
-      // Docker build installs deps + trains the model (RUN python train.py).
-      // If accuracy < threshold, train.py exits non-zero and the build FAILS.
-      // This IS the quality gate — baked right into the Docker build.
+      // Builds a code-only image — model is NOT inside, it comes from S3.
       steps {
         sh "docker build -t \${IMAGE}:${TAG} -t \${IMAGE}:latest ."
       }
     }
 
     stage('Test') {
-      // Run tests inside the built image — guaranteed same Python + deps
+      // Run tests inside a container with the model downloaded from S3.
       steps {
-        sh "docker run --rm \${IMAGE}:${TAG} python -m pytest -q"
+        sh """
+          docker run --rm \
+            -e MODEL_S3_BUCKET=${MODEL_S3_BUCKET} \
+            -e AWS_ACCESS_KEY_ID=\$(aws configure get aws_access_key_id) \
+            -e AWS_SECRET_ACCESS_KEY=\$(aws configure get aws_secret_access_key) \
+            -e AWS_DEFAULT_REGION=${AWS_REGION} \
+            \${IMAGE}:${TAG} \
+            python -m pytest -q
+        """
       }
     }
 
